@@ -1,11 +1,12 @@
 // Copyright 2017 Cameron Bergoon
 // Licensed under the MIT License, see LICENCE file for details.
 
-package merkletree
+package mmr
 
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"hash"
@@ -40,9 +41,9 @@ type Node struct {
 	C      Content
 }
 
-//verifyNode walks down the tree until hitting a leaf, calculating the hash at each level
-//and returning the resulting hash of Node n.
+//验证节点
 func (n *Node) verifyNode() ([]byte, error) {
+
 	if n.leaf {
 		return n.C.CalculateHash()
 	}
@@ -94,9 +95,7 @@ func NewTree(cs []Content) (*MerkleTree, error) {
 	return t, nil
 }
 
-//NewTreeWithHashStrategy creates a new Merkle Tree using the content cs using the provided hash
-//strategy. Note that the hash type used in the type that implements the Content interface must
-//match the hash type profided to the tree.
+//NewTreeWithHashStrategy 生成特定hash类型的mmr
 func NewTreeWithHashStrategy(cs []Content, hashStrategy func() hash.Hash) (*MerkleTree, error) {
 	t := &MerkleTree{
 		hashStrategy: hashStrategy,
@@ -112,6 +111,7 @@ func NewTreeWithHashStrategy(cs []Content, hashStrategy func() hash.Hash) (*Merk
 }
 
 // GetMerklePath: Get Merkle path and indexes(left leaf or right leaf)
+//GetMerklePath 获得 mmr的路径和 叶子节点的索引
 func (m *MerkleTree) GetMerklePath(content Content) ([][]byte, []int64, error) {
 	for _, current := range m.Leafs {
 		ok, err := current.C.Equals(content)
@@ -150,6 +150,7 @@ func buildWithContent(cs []Content, t *MerkleTree) (*Node, []*Node, error) {
 	var leafs []*Node
 	for _, c := range cs {
 		hash, err := c.CalculateHash()
+		fmt.Println("计算hash",hex.EncodeToString(hash))
 		if err != nil {
 			return nil, nil, err
 		}
@@ -160,7 +161,9 @@ func buildWithContent(cs []Content, t *MerkleTree) (*Node, []*Node, error) {
 			leaf: true,
 			Tree: t,
 		})
+
 	}
+	//叶子节点个数为奇数个
 	if len(leafs)%2 == 1 {
 		duplicate := &Node{
 			Hash: leafs[len(leafs)-1].Hash,
@@ -171,6 +174,10 @@ func buildWithContent(cs []Content, t *MerkleTree) (*Node, []*Node, error) {
 		}
 		leafs = append(leafs, duplicate)
 	}
+	for i,v := range leafs{
+		fmt.Println(i,v)
+	}
+	//返回root node
 	root, err := buildIntermediate(leafs, t)
 	if err != nil {
 		return nil, nil, err
@@ -178,16 +185,19 @@ func buildWithContent(cs []Content, t *MerkleTree) (*Node, []*Node, error) {
 
 	return root, leafs, nil
 }
-
-//buildIntermediate is a helper function that for a given list of leaf nodes, constructs
-//the intermediate and root levels of the tree. Returns the resulting root node of the tree.
+//buildIntermediate 构建 mmr 的叶子节点和root节点
+//具体过程：构建root Hash,递归调用buildIntermediate,先对叶子节点进行两两hash,循环执行，
+// 最后只剩下两个hash的节点, 对其进行取hash 即为root hash
 func buildIntermediate(nl []*Node, t *MerkleTree) (*Node, error) {
 	var nodes []*Node
+	fmt.Println("len:",len(nl))
 	for i := 0; i < len(nl); i += 2 {
 		h := t.hashStrategy()
 		var left, right int = i, i + 1
+		fmt.Println("i+1:",i+1)
 		if i+1 == len(nl) {
 			right = i
+
 		}
 		chash := append(nl[left].Hash, nl[right].Hash...)
 		if _, err := h.Write(chash); err != nil {
@@ -202,6 +212,8 @@ func buildIntermediate(nl []*Node, t *MerkleTree) (*Node, error) {
 		nodes = append(nodes, n)
 		nl[left].Parent = n
 		nl[right].Parent = n
+		//判断是否到了最上层,因为最上层只有两个节点,对其取hash后即为root hash
+		//此时的n就为 root hash
 		if len(nl) == 2 {
 			return n, nil
 		}

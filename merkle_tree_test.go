@@ -1,12 +1,14 @@
 // Copyright 2017 Cameron Bergoon
 // Licensed under the MIT License, see LICENCE file for details.
 
-package merkletree
+package mmr
 
 import (
 	"bytes"
 	"crypto/md5"
 	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"hash"
 	"testing"
 )
@@ -346,7 +348,7 @@ var table = []struct {
 }
 
 func TestNewTree(t *testing.T) {
-	for i := 0; i < len(table); i++ {
+	for i := 1; i < 2; i++ {
 		if !table[i].defaultHashStrategy {
 			continue
 		}
@@ -354,6 +356,7 @@ func TestNewTree(t *testing.T) {
 		if err != nil {
 			t.Errorf("[case:%d] error: unexpected error: %v", table[i].testCaseId, err)
 		}
+		fmt.Println(hex.EncodeToString(tree.MerkleRoot()))
 		if bytes.Compare(tree.MerkleRoot(), table[i].expectedHash) != 0 {
 			t.Errorf("[case:%d] error: expected hash equal to %v got %v", table[i].testCaseId, table[i].expectedHash, tree.MerkleRoot())
 		}
@@ -378,6 +381,7 @@ func TestMerkleTree_MerkleRoot(t *testing.T) {
 		var err error
 		if table[i].defaultHashStrategy {
 			tree, err = NewTree(table[i].contents)
+			fmt.Println(tree)
 		} else {
 			tree, err = NewTreeWithHashStrategy(table[i].contents, table[i].hashStrategy)
 		}
@@ -438,11 +442,12 @@ func TestMerkleTree_RebuildTreeWith(t *testing.T) {
 }
 
 func TestMerkleTree_VerifyTree(t *testing.T) {
-	for i := 0; i < len(table); i++ {
+	for i := 0; i < 1; i++ {
 		var tree *MerkleTree
 		var err error
 		if table[i].defaultHashStrategy {
 			tree, err = NewTree(table[i].contents)
+			fmt.Println("tree:",tree)
 		} else {
 			tree, err = NewTreeWithHashStrategy(table[i].contents, table[i].hashStrategy)
 		}
@@ -550,7 +555,7 @@ func TestMerkleTree_String(t *testing.T) {
 }
 
 func TestMerkleTree_MerklePath(t *testing.T) {
-	for i := 0; i < len(table); i++ {
+	for i := 0; i < 1; i++ {
 		var tree *MerkleTree
 		var err error
 		if table[i].defaultHashStrategy {
@@ -562,8 +567,9 @@ func TestMerkleTree_MerklePath(t *testing.T) {
 			t.Errorf("[case:%d] error: unexpected error: %v", table[i].testCaseId, err)
 		}
 		for j := 0; j < len(table[i].contents); j++ {
-			merklePath, index, _ := tree.GetMerklePath(table[i].contents[j])
-
+			merklePath, index, _ := tree.GetMerklePath(table[i].contents[2])
+			fmt.Println("路径",merklePath)
+			fmt.Println("索引",index)
 			hash, err := tree.Leafs[j].calculateNodeHash()
 			if err != nil {
 				t.Errorf("[case:%d] error: calculateNodeHash error: %v", table[i].testCaseId, err)
